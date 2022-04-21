@@ -1,0 +1,134 @@
+---
+
+const { content } = Astro.props;
+const pageTitle = `${content.title} - Jesus Guerrero`
+const pageDescription = `${content.description}`
+
+// I am using import.meta.glob instead of astro to prevent an infinite loop on build
+// more info here https://dev.to/dailydevtips1/an-alternative-way-of-loading-content-in-astro-18np
+const allSeeds = await import.meta.glob('../pages/seeds/*.md')
+let seeds = await Promise.all(
+    Object.entries(allSeeds).map(async ([key, seed]) => {
+        const url = key.replace('../pages/seeds/', '/seeds').replace('.md', '/')
+        return seed().then(async content => {
+          console.log(content, 'Original seed data')
+          // Update: I had to load the an async function default() in order to get the astro object
+          const source = await content.default()
+          console.log(content.frontmatter, source.frontmatter, "differences between the 2 objects")
+          return {
+              // ...seed.frontmatter,
+              ...source.frontmatter,
+              url
+          }
+        })
+    })
+)
+
+
+seeds = seeds.filter(seed => {
+  //in previous versions  `astro.source` was available in {mdObject}.frontmatter now it doesn't come
+  return seed.astro.source.toLowerCase().includes(content.title.toLowerCase())
+});
+---
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>{content.title}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    
+    <meta name="title" content={pageTitle}>
+    <meta name="description" content={pageDescription}>
+</head>
+<body>
+    <main>
+        <article class="px-5 md:px-0 py-20 mx-auto overflow-visible prose">
+            <h1 class="seed-title font-bold text-gray">
+              <span> Seeds: {content.title } </span>
+              <small>
+                <a href="/"> Back to Garden </a>
+              </small>
+            </h1>
+            <div class="seed-header">
+                <div>Status: <span class="font-bold text-green">
+                  <i class="fa fa-seedling"/>{content.status}</span> 
+                </div>
+                <div>PlantDate: <span class="font-bold text-accent">{content.planted}</span></div>
+                <div>Last Update: <span class="font-bold text-accent">{content.checked || content.planted }</span></div>
+            </div>
+            <section class="seed-article">
+                <slot />
+                { !seeds.length ? null : <div class="mt-5">
+                    <h2 class="mb-1 text-xl font-bold text-gray-400">Backlinks</h2>
+                    <ul class="list-disc list-inside">
+                        {seeds.map(seed => {
+                            return <li class="mb-2">
+                                <a href={`/seeds/${seed.slug}`} class="text-accent-400">{seed.title}</a>
+                            </li>
+                        })}
+                    </ul>
+                }
+            </section>
+        </article>
+    </main>
+    <footer class="seed-footer">
+        <div >2021 Made with <span class="font-bold text-accent">code</span> by <span class="font-bold underline">Jesus Guerrero</span></div>
+    </footer>
+</body>
+</html>
+
+<style global>
+.seed-article a, .seed-article .prose a[href*="/seeds/"] {
+    color: dodgerblue;
+    font-weight: bold;
+    border-bottom: 1px dashed dodgerblue;
+    text-decoration: none
+}
+
+.seed-article {
+  color: gray;
+}
+
+.seed-header {
+  display: flex;
+}
+
+.seed-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.seed-header div {
+  margin-right: 15px;
+}
+
+.seed-footer {
+  border-top: 1px solid gray;
+  padding: 10px 0;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+}
+
+.font-bold {
+  font-weight: bold;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+.text-accent {
+  color: dodgerblue;
+}
+
+.text-gray {
+  color: gray;
+}
+
+.text-green {
+  color: green;
+}
+</style>
